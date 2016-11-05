@@ -20,9 +20,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+#########################################################
+#                                                       #
+#       DON'T USE SAME ENCRYPTION KEY TWO TIMES!!!      #
+#                                                       #
+#########################################################
+
 __author__ = "Feshider"
 
-__version__ = 0.9
+__version__ = "0.9.1"
 
 from argparse import ArgumentParser
 from sys import exit, stdout
@@ -30,15 +36,17 @@ from hashlib import sha512
 from base64 import b64encode, b64decode
 from os.path import getsize
 from getpass import getpass
-from math import sqrt
+from time import time
 
 
 class SHAXOR:
     argumentParser = ArgumentParser()
-    input = None
+    inp = None
     output = None
     key = None
     mode = None
+    time_temp = 1
+    chunk_size = 8192
 
     @staticmethod
     def SetArgs():
@@ -54,33 +62,39 @@ class SHAXOR:
     def ParseArgs():
         args = SHAXOR.argumentParser.parse_args()
         SHAXOR.mode = args.mode
-        SHAXOR.input = args.input
+        SHAXOR.inp = args.input
         SHAXOR.output = args.output
 
     @staticmethod
-    def Decide():
-        key1 = getpass(
-            "#1 Enter encryption key please: " if SHAXOR.mode == "TEXTENC" or SHAXOR.mode == "FILE" else "#1 Enter decryption key please: ")
-        if SHAXOR.mode == "TEXTENC":
-            key2 = getpass(
-                "#2 Enter encryption key please: " if SHAXOR.mode == "TEXTENC" or SHAXOR.mode == "FILE" else "#2 Enter decryption key please: ")
-            if key1 == key2:
-                SHAXOR.key = key1
+    def GetKeys(count, mode=0):
+        keys = []
+        if mode == 0:
+            word = "encrytion/decryption"
+        elif mode == 1:
+            word = "encryption"
+        elif mode == 2:
+            word = "decryption"
+        for i in range(1, count+1):
+            keys.append(getpass("{0}# Enter {1} key please: ".format(i, word)))
+        if len(keys) == 2:
+            if keys[0] == keys[1]:
+                SHAXOR.key = keys[0]
             else:
-                print("SHAXOR.py: error: key1 and key2 is different")
+                print("SHAXOR.py: error: keys is different.")
                 exit()
+        else:
+            SHAXOR.key = keys[0]
+
+    @staticmethod
+    def Decide():
+        if SHAXOR.mode == "TEXTENC":
+            SHAXOR.GetKeys(2, 1)
             SHAXOR.EncText()
         elif SHAXOR.mode == "TEXTDEC":
-            SHAXOR.key = key1
+            SHAXOR.GetKeys(1, 2)
             SHAXOR.EncText(decrypt=True)
         elif SHAXOR.mode == "FILE":
-            key2 = getpass(
-                "#2 Enter encryption key please: ")
-            if key1 == key2:
-                SHAXOR.key = key1
-            else:
-                print("SHAXOR.py: error: key1 and key2 is different")
-                exit()
+            SHAXOR.GetKeys(2, 0)
             if SHAXOR.output != None:
                 SHAXOR.EncFile()
             else:
@@ -91,26 +105,44 @@ class SHAXOR:
             exit()
 
     @staticmethod
+    def sizeof_fmt(num):  # Thanks to Fred Cirera.
+        for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
+            if num < 1024.0:
+                return "%3.1f%s" % (num, x)
+            num /= 1024.0
+
+    @staticmethod
     def UpdateProgress(pr, max):
+        speed = int(SHAXOR.chunk_size*(1/float(time()-SHAXOR.time_temp)))
         pc = int((100 * pr) / float(max))
-        stdout.write("[{0}{1}]{2}% {3}B/{4}B\r".format("#" * (pc / 3), " " * (33 - (pc / 3)), pc, pr, max))
+        stdout.write("[{0}{1}]{2}% {3}/{4}  {5}/s\r".format("#" * (pc / 4), " " * (25 - (pc / 4)), pc,
+                                                          SHAXOR.sizeof_fmt(pr), SHAXOR.sizeof_fmt(max),
+                                                          SHAXOR.sizeof_fmt(speed)))
         stdout.flush()
 
     @staticmethod
     def ReadFile():
         try:
-            size = getsize(SHAXOR.input)
-            with open(SHAXOR.input, "rb") as f:
+            size = getsize(SHAXOR.inp)
+            with open(SHAXOR.inp, "rb") as f:
                 while True:
-                    chunk = f.read(64)
+                    SHAXOR.time_temp = time()
+                    chunk = f.read(SHAXOR.chunk_size)
                     if not chunk:
                         f.close()
                         break
-                    SHAXOR.UpdateProgress(f.tell(), size)
                     yield chunk
-        except:
+                    SHAXOR.UpdateProgress(f.tell(), size)
+        except IOError:
             print("SHAXOR.py: error: opening input file occurred some error")
             exit()
+
+    @staticmethod
+    def Factor(hs):
+        sum = 0
+        for i in range(0, 64, 8):
+            sum += ord(hs[i])
+        return sum
 
     @staticmethod
     def EncFile():
@@ -119,8 +151,14 @@ class SHAXOR:
         except:
             print("SHAXOR.py: error: opening output file occurred some error")
             exit()
+        key = sha512(SHAXOR.key).digest()
         for chunk in SHAXOR.ReadFile():
-            SHAXOR.key = sha512(SHAXOR.key * int(round(sqrt(getsize(SHAXOR.input)))) if int(round(sqrt(getsize(SHAXOR.input)))) > 1 else 1).digest()
+            SHAXOR.key = ""
+            for i in range(SHAXOR.chunk_size/64):
+                factor = SHAXOR.Factor(key)
+                hs = sha512(key *  (factor if factor > 0 else 1)).digest()
+                SHAXOR.key += hs
+                key = hs
             for i, c in enumerate(chunk):
                 o.write(chr(ord(c) ^ ord(SHAXOR.key[i])))
         o.close()
@@ -129,16 +167,19 @@ class SHAXOR:
     def EncText(decrypt=False):
         if decrypt:
             try:
-                SHAXOR.input = b64decode(SHAXOR.input)
+                SHAXOR.inp = b64decode(SHAXOR.inp)
             except:
                 print("SHAXOR.py: error: decoding text occurred some error, encrypted text is probably damaged")
                 exit()
         XOR = ""
-        SHAXOR.key = sha512(SHAXOR.key * int(round(sqrt(len(SHAXOR.input)))) if int(round(sqrt(len(SHAXOR.input)))) > 1 else 1).digest()
-        for i, c in enumerate(SHAXOR.input):
+        SHAXOR.key = sha512(SHAXOR.key).digest()
+        factor = SHAXOR.Factor(SHAXOR.key)
+        SHAXOR.key = sha512(SHAXOR.key * (factor if factor > 0 else 1)).digest()
+        for i, c in enumerate(SHAXOR.inp):
             XOR += chr(ord(c) ^ ord(SHAXOR.key[i]))
             if i == (len(SHAXOR.key) - 1):
-                SHAXOR.key += sha512(SHAXOR.key * int(round(sqrt(len(SHAXOR.input)))) if int(round(sqrt(len(SHAXOR.input)))) > 1 else 1).digest()
+                factor = SHAXOR.Factor(SHAXOR.key)
+                SHAXOR.key += sha512(SHAXOR.key * (factor if factor > 0 else 1)).digest()
         if not decrypt:
             XOR = b64encode(XOR)
         if SHAXOR.output == None:
