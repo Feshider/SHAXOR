@@ -1,5 +1,5 @@
 # SHAXOR
-Symetric text and file encryption.
+Symetric text and file encryption. This encryption is probably secure if you don't use same key two times.
 
 
 usage: shaxor.py [-h] -m MODE -i INPUT [-o OUTPUT]
