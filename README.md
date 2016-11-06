@@ -7,7 +7,7 @@ usage: shaxor.py [-h] -m MODE -i INPUT [-o OUTPUT]
 optional arguments:
 &nbsp;&nbsp;&nbsp;&nbsp;-h, --help            show this help message and exit
   
-&nbsp;&nbsp;&nbsp;&nbsp;-m MODE, --mode MODE  "TEXTENC" - (text) encryption, "FILE" - (path to file) encryption/decryption, "TEXTDEC" - (text) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;decryption
+&nbsp;&nbsp;&nbsp;&nbsp;-m MODE, --mode MODE  "TE" - (text) encryption, "F" - (path to file) encryption/decryption, "TD" - (text) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;decryption
                         
 &nbsp;&nbsp;&nbsp;&nbsp;-i INPUT, --input INPUT
                         Text/File for encryption/decryption.
